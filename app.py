@@ -197,7 +197,6 @@ if uploaded is not None and program and video_button and st.session_state['final
                 final_video = concatenated_video.set_audio(audio_clip)
 
                 # Get main video file name and append 'intro_' to the beginning
-                import os
                 main_video_name, main_video_ext = os.path.splitext(os.path.basename(main_video.filename))
                 new_video_name = f"{main_video_name}_intro{main_video_ext}"
 
@@ -379,21 +378,22 @@ if st.button("Upload videos to youtube") and video_uploads:
     progress = st.empty()
     i = 0
     progress.text(f"Upload progress: {i}/{len(df)}")
-    for index, row in df.iterrows():
-        video_url = row['video']
-        video_file = f"video_{index}.mp4"
-        download_video_from_drive(video_url, video_file, creds_dict) 
-        title = row['title']
-        description = ""
-        category_id = "22"
-        tags = []
-        try:
-            initialize_upload(youtube, video_file, title, description, category_id, tags)
-        except HttpError as e:
-            st.write(f"Youtube API Rate limit exceeded.")
-            break
-        progress.text(f"Upload progress: {i}/{len(df)}")
-        i+=1
-        os.remove(video_file)
+    with st.spinner("Uploading videos..."):
+        for index, row in df.iterrows():
+            video_url = row['video']
+            video_file = f"video_{index}.mp4"
+            download_video_from_drive(video_url, video_file, creds_dict) 
+            title = row['title']
+            description = ""
+            category_id = "22"
+            tags = []
+            try:
+                initialize_upload(youtube, video_file, title, description, category_id, tags)
+            except HttpError as e:
+                st.write(f"Youtube API Rate limit exceeded.")
+                break
+            progress.text(f"Upload progress: {i}/{len(df)}")
+            i+=1
+            os.remove(video_file)
 
         
