@@ -12,6 +12,11 @@ import zipfile
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 from google.oauth2.credentials import Credentials
+from googleapiclient.errors import HttpError
+from oauth2client.client import flow_from_clientsecrets
+from oauth2client.file import Storage
+from oauth2client.tools import run_flow
+import sys
 import json
 import boto3
 from PIL import Image
@@ -203,7 +208,9 @@ if uploaded is not None and program and video_button and st.session_state['final
                 CLIENT_SECRET_FILE = 'credentials.json'
                 API_NAME = 'drive'
                 API_VERSION = 'v3'
-                SCOPES = ['https://www.googleapis.com/auth/drive']
+                SCOPES = ['https://www.googleapis.com/auth/drive.readonly',
+                            'https://www.googleapis.com/auth/youtube.upload']
+
 
                 with open(CLIENT_SECRET_FILE, 'r') as f:
                     client_info = json.load(f)['web']
@@ -264,7 +271,7 @@ stitch_button = st.button("Stitch Videos")
 if stitch_button and st.session_state['final_auth'] and stitch_folder and stitch_uploaded is not None:
     df = pd.read_csv(stitch_uploaded)
 
-   # Assuming that 'CLIENT_SECRET_FILE', 'videos_directory', 'stitch_folder', and 'df' are defined elsewhere in your code
+    # Assuming that 'CLIENT_SECRET_FILE', 'videos_directory', 'stitch_folder', and 'df' are defined elsewhere in your code
 
     CLIENT_SECRET_FILE = 'credentials.json'
     with open(CLIENT_SECRET_FILE, 'r') as f:
@@ -293,3 +300,100 @@ if stitch_button and st.session_state['final_auth'] and stitch_folder and stitch
                 # Assuming the 'arg' is a tuple and the first element is the row number
                 row_number = arg[0]
                 print(f'Exception at row {row_number + 2}: {e}')
+
+# Define the required scopes
+SCOPES = ['https://www.googleapis.com/auth/drive.readonly',
+          'https://www.googleapis.com/auth/youtube.upload']
+
+def get_authenticated_service():
+    flow = flow_from_clientsecrets('credentials.json',
+        scope=SCOPES,
+        message='Please configure OAuth 2.0')
+
+    # Set the redirect_uri property of the flow object
+    flow.redirect_uri = "https://photo-labeler-842ac8d73e7a.herokuapp.com/callback"
+
+    storage = Storage("%s-oauth2.json" % sys.argv[0])
+    credentials = storage.get()
+
+    if credentials is None or credentials.invalid:
+        credentials = run_flow(flow, storage)
+
+    return build('youtube', 'v3', credentials=credentials)
+
+def initialize_upload(youtube, video_file, title, description, category_id, tags):
+    body = {
+        'snippet': {
+            'title': title,
+            'description': description,
+            'tags': tags,
+            'categoryId': category_id
+        },
+        'status': {
+            'privacyStatus': 'public'
+        }
+    }
+    media = MediaFileUpload(video_file, mimetype='video/mp4', resumable=True)
+    request = youtube.videos().insert(
+        part=','.join(body.keys()),
+        body=body,
+        media_body=media
+    )
+    resumable_upload(request)
+
+def resumable_upload(request):
+    response = None
+    while response is None:
+        status, response = request.next_chunk()
+        if response is not None:
+            if 'id' in response:
+                print(f'Video ID {response["id"]} was successfully uploaded.')
+            else:
+                print(f'The upload failed with an unexpected response: {response}')
+
+def download_video_from_drive(url, output, creds_dict):
+    creds = Credentials.from_authorized_user_info(creds_dict, SCOPES)
+    drive_service = build('drive', 'v3', credentials=creds)
+    file_id = url.split('/')[-2]
+    video_request = drive_service.files().get_media(fileId=file_id)
+    video_data_io = BytesIO()
+    downloader = MediaIoBaseDownload(video_data_io, video_request)
+    done = False
+    while done is False:
+        status, done = downloader.next_chunk()
+    with open(output, 'wb') as f:
+        f.write(video_data_io.getvalue())
+
+st.subheader("Automatic Youtube Uploader")
+video_uploads = st.file_uploader(label="Upload a CVS of videos", type=['csv'])
+if st.button("Upload videos to youtube") and video_uploads:
+    youtube = get_authenticated_service()
+    df = pd.read_csv(video_uploads)
+    CLIENT_SECRET_FILE = 'credentials.json'
+    with open(CLIENT_SECRET_FILE, 'r') as f:
+        client_info = json.load(f)['web']
+    creds_dict = st.session_state['creds']
+    creds_dict['client_id'] = client_info['client_id']
+    creds_dict['client_secret'] = client_info['client_secret']
+    creds_dict['refresh_token'] = creds_dict.get('_refresh_token')
+    progress = st.empty()
+    i = 0
+    progress.text(f"Upload progress: {i}/{len(df)}")
+    for index, row in df.iterrows():
+        video_url = row['video']
+        video_file = f"video_{index}.mp4"
+        download_video_from_drive(video_url, video_file, creds_dict) 
+        title = row['title']
+        description = ""
+        category_id = "22"
+        tags = []
+        try:
+            initialize_upload(youtube, video_file, title, description, category_id, tags)
+        except HttpError as e:
+            st.write(f"Youtube API Rate limit exceeded.")
+            break
+        progress.text(f"Upload progress: {i}/{len(df)}")
+        i+=1
+        os.remove(video_file)
+
+        
