@@ -166,138 +166,139 @@ configuration.api_key['DeveloperKey'] = "ymfTz2fdKw58Oog3dxg5haeUtTOMDfXH4Qp9zlx
 video_button = st.button("Process Videos")
 
 if uploaded is not None and program and video_button and st.session_state['final_auth']:
-    folder_id = extract_id_from_url(folder_id)
-    # Load the CSV file into a dataframe
-    dataframe = pd.read_csv(uploaded)
+    with st.spinner("Processing videos...")
+        folder_id = extract_id_from_url(folder_id)
+        # Load the CSV file into a dataframe
+        dataframe = pd.read_csv(uploaded)
 
-    # Create API client
-    with shotstack.ApiClient(configuration) as api_client:
-        api_instance = edit_api.EditApi(api_client)
+        # Create API client
+        with shotstack.ApiClient(configuration) as api_client:
+            api_instance = edit_api.EditApi(api_client)
 
-        progress_report = st.empty()
-        i = 1
-        # Loop over the rows of the dataframe
-        for _, row in dataframe.iterrows():
+            progress_report = st.empty()
+            i = 1
+            # Loop over the rows of the dataframe
+            for _, row in dataframe.iterrows():
 
-            # Create the merge fields for this row
-            merge_fields = [
-                MergeField(find="program_name", replace=program),
-                MergeField(find="name", replace=row.get('name', row.get('name1', ''))),
-                MergeField(find="school", replace=row.get('school', row.get('name2', ''))),
-                MergeField(find="location", replace=row.get('location', row.get('name3', ''))),
-                MergeField(find="class", replace='Class of ' + str(round(row['class'])) if 'class' in row else row.get('name4', '')),
-                MergeField(find="name5", replace=row.get('name5', '')),
-                MergeField(find="name6", replace=row.get('name6', '')),
-                MergeField(find="name7", replace=row.get('name7', '')),
-            ]
+                # Create the merge fields for this row
+                merge_fields = [
+                    MergeField(find="program_name", replace=program),
+                    MergeField(find="name", replace=row.get('name', row.get('name1', ''))),
+                    MergeField(find="school", replace=row.get('school', row.get('name2', ''))),
+                    MergeField(find="location", replace=row.get('location', row.get('name3', ''))),
+                    MergeField(find="class", replace='Class of ' + str(round(row['class'])) if 'class' in row else row.get('name4', '')),
+                    MergeField(find="name5", replace=row.get('name5', '')),
+                    MergeField(find="name6", replace=row.get('name6', '')),
+                    MergeField(find="name7", replace=row.get('name7', '')),
+                ]
 
-            # Create the template render object
-            template = TemplateRender(
-                id = "775d5f85-71f6-4e47-9e10-6c9eb0c0f477",
-                merge = merge_fields
-            )
-
-            try:
-                # Post the template render
-                api_response = api_instance.post_template_render(template)
-
-                # Display the message
-                message = api_response['response']['message']
-                id = api_response['response']['id']
-                print(f"{message}")
-
-                # Poll the API until the video is ready
-                status = 'queued'
-                while status != 'done':
-                    time.sleep(1)
-                    status_response = api_instance.get_render(id)
-                    status = status_response.response.status
-                    print(status)
-                # Construct the video URL
-                video_url = f"https://cdn.shotstack.io/au/v1/yn3e0zspth/{id}.mp4"
-
-                print(video_url)
-
-                name = row.get('name', row.get('name1', 'unnamed'))
-                video_file = f"Videos/{name}.mp4"
-
-                # Directly write the downloaded content to a file
-                r = requests.get(video_url)
-                with open(video_file, 'wb') as f:
-                    f.write(r.content)
-
-                # Append intro video to the beginning
-                intro_video_path = "intro_li.mp4"
-                main_video = mp.VideoFileClip(video_file)
-                intro_video = mp.VideoFileClip(intro_video_path)
-
-                print(f"Intro video duration: {intro_video.duration}, fps: {intro_video.fps}")
-                print(f"Main video duration: {main_video.duration}, fps: {main_video.fps}")
-
-                # Concatenate intro and the main video
-                concatenated_video = mp.concatenate_videoclips([intro_video, main_video])
-
-                # Load intro_audio.mp3 and set it as the audio of the final video
-                audio_clip = mp.AudioFileClip("intro_audio.mp3")
-                final_video = concatenated_video.set_audio(audio_clip)
-
-                # Get main video file name and append 'intro_' to the beginning
-                main_video_name, main_video_ext = os.path.splitext(os.path.basename(main_video.filename))
-                new_video_name = f"{main_video_name}_intro{main_video_ext}"
-
-                # Write the result to a file.
-                final_video.write_videofile(new_video_name, codec='libx264')  
-
-                # Google Drive service setup
-                CLIENT_SECRET_FILE = 'credentials.json'
-                API_NAME = 'drive'
-                API_VERSION = 'v3'
-                SCOPES = ['https://www.googleapis.com/auth/drive.readonly',
-                            'https://www.googleapis.com/auth/youtube.upload']
-
-
-                with open(CLIENT_SECRET_FILE, 'r') as f:
-                    client_info = json.load(f)['web']
-
-                creds_dict = st.session_state['creds']
-                creds_dict['client_id'] = client_info['client_id']
-                creds_dict['client_secret'] = client_info['client_secret']
-                creds_dict['refresh_token'] = creds_dict.get('_refresh_token')
-
-                # Create Credentials from creds_dict
-                creds = Credentials.from_authorized_user_info(creds_dict)
-
-                # Build the Google Drive service
-                drive_service = build('drive', 'v3', credentials=creds)
-
-                # Create a media file upload object
-                media = MediaFileUpload(new_video_name, mimetype='video/mp4')
-
-                # Create the file on Google Drive
-                request = drive_service.files().create(
-                    media_body=media,
-                    body={
-                        'name': new_video_name,
-                        'parents': [folder_id]
-                    }
+                # Create the template render object
+                template = TemplateRender(
+                    id = "775d5f85-71f6-4e47-9e10-6c9eb0c0f477",
+                    merge = merge_fields
                 )
 
-                time.sleep(2)
-                # Execute the request
-                file = request.execute()
-                del media  # Explicitly delete the media object
+                try:
+                    # Post the template render
+                    api_response = api_instance.post_template_render(template)
 
-                # Print the ID of the uploaded file
-                print('File ID: %s' % file.get('id'))
+                    # Display the message
+                    message = api_response['response']['message']
+                    id = api_response['response']['id']
+                    print(f"{message}")
 
-                # Remove temporary file
-                # os.remove(video_file)
-                os.remove(new_video_name)
-            except Exception as e:
-                print(f"Unable to generate intro video for {video_file}: {e}")
+                    # Poll the API until the video is ready
+                    status = 'queued'
+                    while status != 'done':
+                        time.sleep(1)
+                        status_response = api_instance.get_render(id)
+                        status = status_response.response.status
+                        print(status)
+                    # Construct the video URL
+                    video_url = f"https://cdn.shotstack.io/au/v1/yn3e0zspth/{id}.mp4"
 
-            progress_report.text(f"Video progress: {i}/{len(dataframe)}")
-            i+=1
+                    print(video_url)
+
+                    name = row.get('name', row.get('name1', 'unnamed'))
+                    video_file = f"Videos/{name}.mp4"
+
+                    # Directly write the downloaded content to a file
+                    r = requests.get(video_url)
+                    with open(video_file, 'wb') as f:
+                        f.write(r.content)
+
+                    # Append intro video to the beginning
+                    intro_video_path = "intro_li.mp4"
+                    main_video = mp.VideoFileClip(video_file)
+                    intro_video = mp.VideoFileClip(intro_video_path)
+
+                    print(f"Intro video duration: {intro_video.duration}, fps: {intro_video.fps}")
+                    print(f"Main video duration: {main_video.duration}, fps: {main_video.fps}")
+
+                    # Concatenate intro and the main video
+                    concatenated_video = mp.concatenate_videoclips([intro_video, main_video])
+
+                    # Load intro_audio.mp3 and set it as the audio of the final video
+                    audio_clip = mp.AudioFileClip("intro_audio.mp3")
+                    final_video = concatenated_video.set_audio(audio_clip)
+
+                    # Get main video file name and append 'intro_' to the beginning
+                    main_video_name, main_video_ext = os.path.splitext(os.path.basename(main_video.filename))
+                    new_video_name = f"{main_video_name}_intro{main_video_ext}"
+
+                    # Write the result to a file.
+                    final_video.write_videofile(new_video_name, codec='libx264')  
+
+                    # Google Drive service setup
+                    CLIENT_SECRET_FILE = 'credentials.json'
+                    API_NAME = 'drive'
+                    API_VERSION = 'v3'
+                    SCOPES = ['https://www.googleapis.com/auth/drive.readonly',
+                                'https://www.googleapis.com/auth/youtube.upload']
+
+
+                    with open(CLIENT_SECRET_FILE, 'r') as f:
+                        client_info = json.load(f)['web']
+
+                    creds_dict = st.session_state['creds']
+                    creds_dict['client_id'] = client_info['client_id']
+                    creds_dict['client_secret'] = client_info['client_secret']
+                    creds_dict['refresh_token'] = creds_dict.get('_refresh_token')
+
+                    # Create Credentials from creds_dict
+                    creds = Credentials.from_authorized_user_info(creds_dict)
+
+                    # Build the Google Drive service
+                    drive_service = build('drive', 'v3', credentials=creds)
+
+                    # Create a media file upload object
+                    media = MediaFileUpload(new_video_name, mimetype='video/mp4')
+
+                    # Create the file on Google Drive
+                    request = drive_service.files().create(
+                        media_body=media,
+                        body={
+                            'name': new_video_name,
+                            'parents': [folder_id]
+                        }
+                    )
+
+                    time.sleep(2)
+                    # Execute the request
+                    file = request.execute()
+                    del media  # Explicitly delete the media object
+
+                    # Print the ID of the uploaded file
+                    print('File ID: %s' % file.get('id'))
+
+                    # Remove temporary file
+                    # os.remove(video_file)
+                    os.remove(new_video_name)
+                except Exception as e:
+                    print(f"Unable to generate intro video for {video_file}: {e}")
+
+                progress_report.text(f"Video progress: {i}/{len(dataframe)}")
+                i+=1
     st.success("Videos successfully generated!")
     
 # Streamlit UI
@@ -313,38 +314,39 @@ videos_directory = os.path.join(os.getcwd(), 'Videos')
 stitch_button = st.button("Stitch Videos")
 
 if stitch_button and st.session_state['final_auth'] and stitch_folder and stitch_uploaded is not None:
-    stitch_folder = extract_id_from_url(stitch_folder)
-    df = pd.read_csv(stitch_uploaded)
+    with st.spinner("Stitching videos..."):
+        stitch_folder = extract_id_from_url(stitch_folder)
+        df = pd.read_csv(stitch_uploaded)
 
-    # Assuming that 'CLIENT_SECRET_FILE', 'videos_directory', 'stitch_folder', and 'df' are defined elsewhere in your code
+        # Assuming that 'CLIENT_SECRET_FILE', 'videos_directory', 'stitch_folder', and 'df' are defined elsewhere in your code
 
-    CLIENT_SECRET_FILE = 'credentials.json'
-    with open(CLIENT_SECRET_FILE, 'r') as f:
-        client_info = json.load(f)['web']
-    creds_dict = st.session_state['creds']
-    creds_dict['client_id'] = client_info['client_id']
-    creds_dict['client_secret'] = client_info['client_secret']
-    creds_dict['refresh_token'] = creds_dict.get('_refresh_token')
+        CLIENT_SECRET_FILE = 'credentials.json'
+        with open(CLIENT_SECRET_FILE, 'r') as f:
+            client_info = json.load(f)['web']
+        creds_dict = st.session_state['creds']
+        creds_dict['client_id'] = client_info['client_id']
+        creds_dict['client_secret'] = client_info['client_secret']
+        creds_dict['refresh_token'] = creds_dict.get('_refresh_token')
 
-    arguments = [(index, row, videos_directory, creds_dict, stitch_folder) for index, row in df.iterrows()]
+        arguments = [(index, row, videos_directory, creds_dict, stitch_folder) for index, row in df.iterrows()]
 
-    stitch_progress = st.empty()
-    stitch_progress.text(f"Video Progress: 0/{len(df)}")
+        stitch_progress = st.empty()
+        stitch_progress.text(f"Video Progress: 0/{len(df)}")
 
-    i = 0
+        i = 0
 
-    with ProcessPoolExecutor(max_workers=15) as executor:
-        futures = [executor.submit(process_video, arg) for arg in arguments]
+        with ProcessPoolExecutor(max_workers=15) as executor:
+            futures = [executor.submit(process_video, arg) for arg in arguments]
 
-        for future, arg in zip(as_completed(futures), arguments):
-            try:
-                result = future.result()
-                i += 1
-                stitch_progress.text(f"Video Progress: {i}/{len(arguments)}")
-            except Exception as e:
-                # Assuming the 'arg' is a tuple and the first element is the row number
-                row_number = arg[0]
-                print(f'Exception at row {row_number + 2}: {e}')
+            for future, arg in zip(as_completed(futures), arguments):
+                try:
+                    result = future.result()
+                    i += 1
+                    stitch_progress.text(f"Video Progress: {i}/{len(arguments)}")
+                except Exception as e:
+                    # Assuming the 'arg' is a tuple and the first element is the row number
+                    row_number = arg[0]
+                    print(f'Exception at row {row_number + 2}: {e}')
 
 # Define the required scopes
 SCOPES = ['https://www.googleapis.com/auth/drive.readonly',
@@ -412,34 +414,35 @@ def download_video_from_drive(url, output, creds_dict):
 st.header("Automatic Youtube Uploader")
 video_uploads = st.file_uploader(label="Upload a CVS of videos", type=['csv'])
 if st.button("Upload videos to youtube") and video_uploads:
-    youtube = get_authenticated_service()
-    df = pd.read_csv(video_uploads)
-    CLIENT_SECRET_FILE = 'credentials.json'
-    with open(CLIENT_SECRET_FILE, 'r') as f:
-        client_info = json.load(f)['web']
-    creds_dict = st.session_state['creds']
-    creds_dict['client_id'] = client_info['client_id']
-    creds_dict['client_secret'] = client_info['client_secret']
-    creds_dict['refresh_token'] = creds_dict.get('_refresh_token')
-    progress = st.empty()
-    i = 0
-    progress.text(f"Upload progress: {i}/{len(df)}")
     with st.spinner("Uploading videos..."):
-        for index, row in df.iterrows():
-            video_url = row['video']
-            video_file = f"video_{index}.mp4"
-            download_video_from_drive(video_url, video_file, creds_dict) 
-            title = row['title']
-            description = ""
-            category_id = "22"
-            tags = []
-            try:
-                initialize_upload(youtube, video_file, title, description, category_id, tags)
-            except HttpError as e:
-                st.write(f"Youtube API Rate limit exceeded.")
-                break
-            progress.text(f"Upload progress: {i}/{len(df)}")
-            i+=1
-            os.remove(video_file)
+        youtube = get_authenticated_service()
+        df = pd.read_csv(video_uploads)
+        CLIENT_SECRET_FILE = 'credentials.json'
+        with open(CLIENT_SECRET_FILE, 'r') as f:
+            client_info = json.load(f)['web']
+        creds_dict = st.session_state['creds']
+        creds_dict['client_id'] = client_info['client_id']
+        creds_dict['client_secret'] = client_info['client_secret']
+        creds_dict['refresh_token'] = creds_dict.get('_refresh_token')
+        progress = st.empty()
+        i = 0
+        progress.text(f"Upload progress: {i}/{len(df)}")
+        with st.spinner("Uploading videos..."):
+            for index, row in df.iterrows():
+                video_url = row['video']
+                video_file = f"video_{index}.mp4"
+                download_video_from_drive(video_url, video_file, creds_dict) 
+                title = row['title']
+                description = ""
+                category_id = "22"
+                tags = []
+                try:
+                    initialize_upload(youtube, video_file, title, description, category_id, tags)
+                except HttpError as e:
+                    st.write(f"Youtube API Rate limit exceeded.")
+                    break
+                progress.text(f"Upload progress: {i}/{len(df)}")
+                i+=1
+                os.remove(video_file)
 
         
