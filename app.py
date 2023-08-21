@@ -30,6 +30,9 @@ from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_compl
 import os
 import subprocess
 import re
+import moviepy.editor as mp
+from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips
+
 
 st.set_page_config(
     page_title='VideoEditor',
@@ -167,7 +170,7 @@ configuration.api_key['DeveloperKey'] = "ymfTz2fdKw58Oog3dxg5haeUtTOMDfXH4Qp9zlx
 video_button = st.button("Process Videos")
 
 if uploaded is not None and program and video_button and st.session_state['final_auth']:
-    with st.spinner("Processing videos..."):
+    with st.spinner("Processing videos (may take a few minutes)..."):
         folder_id = extract_id_from_url(folder_id)
         # Load the CSV file into a dataframe
         dataframe = pd.read_csv(uploaded)
@@ -315,7 +318,7 @@ videos_directory = os.path.join(os.getcwd(), 'Videos')
 stitch_button = st.button("Stitch Videos")
 
 if stitch_button and st.session_state['final_auth'] and stitch_folder and stitch_uploaded is not None:
-    with st.spinner("Stitching videos..."):
+    with st.spinner("Stitching videos (may take a few minutes)..."):
         stitch_folder = extract_id_from_url(stitch_folder)
         df = pd.read_csv(stitch_uploaded)
 
@@ -427,7 +430,7 @@ if st.button("Upload videos to youtube") and video_uploads:
     progress = st.empty()
     i = 1
     progress.text(f"Upload progress: {i}/{len(df)}")
-    with st.spinner("Uploading videos..."):
+    with st.spinner("Uploading videos (may take a few minutes)..."):
         for index, row in df.iterrows():
             video_url = row['video']
             video_file = f"video_{index}.mp4"
