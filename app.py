@@ -46,9 +46,34 @@ def extract_id_from_url(url):
         return match.group(0)
     return None
 
+def reset_s3():
+    # Set AWS details (replace with your own details)
+    AWS_REGION_NAME = 'us-east-2'
+    AWS_ACCESS_KEY = 'AKIARK3QQWNWXGIGOFOH'
+    AWS_SECRET_KEY = 'ClAUaloRIp3ebj9atw07u/o3joULLY41ghDiDc2a'
+
+    # Initialize the S3 client
+    s3 = boto3.client('s3',
+        region_name=AWS_REGION_NAME,
+        aws_access_key_id=AWS_ACCESS_KEY,
+        aws_secret_access_key=AWS_SECRET_KEY
+    )
+
+    # Delete objects within subdirectories in the bucket 'li-general-tasks'
+    subdirs = ['input_videos/', 'output_videos/', 'images/']
+    for subdir in subdirs:
+        objects = s3.list_objects_v2(Bucket='li-general-tasks', Prefix=subdir)
+        for obj in objects.get('Contents', []):
+            if obj['Key'] != 'input_videos/outro.mp4':
+                s3.delete_object(Bucket='li-general-tasks', Key=obj['Key'])
+                
+        # Add a placeholder object to represent the "directory"
+        s3.put_object(Bucket='li-general-tasks', Key=subdir)
+
 try:
     
     if 'begin_auth' not in st.session_state:
+        reset_s3()
         st.session_state['creds'] = ""
         st.session_state['begin_auth'] = False
         st.session_state['final_auth'] = False
