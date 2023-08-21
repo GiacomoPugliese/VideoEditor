@@ -103,7 +103,7 @@ with st.expander("Click to view full directions for this site"):
     st.write("- Upload a csv with columns PRECISELY titled 'title' and 'video' (the video column should have a Google drive share link).")
     st.write("- Click 'Upload videos to youtube' and view them in your youtube channel.")
 
-st.header("Google authentication")
+st.header("Google Authentication")
 
 try:
     if st.button("Authenticate Google Account"):
