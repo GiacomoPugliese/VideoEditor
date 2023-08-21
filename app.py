@@ -166,7 +166,7 @@ configuration.api_key['DeveloperKey'] = "ymfTz2fdKw58Oog3dxg5haeUtTOMDfXH4Qp9zlx
 video_button = st.button("Process Videos")
 
 if uploaded is not None and program and video_button and st.session_state['final_auth']:
-    with st.spinner("Processing videos...")
+    with st.spinner("Processing videos..."):
         folder_id = extract_id_from_url(folder_id)
         # Load the CSV file into a dataframe
         dataframe = pd.read_csv(uploaded)
