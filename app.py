@@ -37,6 +37,15 @@ st.set_page_config(
 hide_streamlit_style = """ <style> #MainMenu {visibility: hidden;} footer {visibility: hidden;} </style> """ 
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
+def extract_id_from_url(url):
+    match = re.search(r'(?<=folders/)[a-zA-Z0-9_-]+', url)
+    if match:
+        return match.group(0)
+    match = re.search(r'(?<=spreadsheets/d/)[a-zA-Z0-9_-]+', url)
+    if match:
+        return match.group(0)
+    return None
+
 try:
     
     if 'begin_auth' not in st.session_state:
@@ -116,7 +125,7 @@ col1, col2 = st.columns(2)
 
 with col1:
     # Get the ID of the Google Drive folder to upload the videos to
-    folder_id = st.text_input("ID of the Google Drive folder to upload the videos to:")
+    folder_id = st.text_input("URL of the Google Drive folder to upload the videos to:")
 
 with col2:
     # Text input for the program name
@@ -132,6 +141,7 @@ configuration.api_key['DeveloperKey'] = "ymfTz2fdKw58Oog3dxg5haeUtTOMDfXH4Qp9zlx
 video_button = st.button("Process Videos")
 
 if uploaded is not None and program and video_button and st.session_state['final_auth']:
+    folder_id = extract_id_from_url(folder_id)
     # Load the CSV file into a dataframe
     dataframe = pd.read_csv(uploaded)
 
@@ -267,7 +277,7 @@ if uploaded is not None and program and video_button and st.session_state['final
     
 # Streamlit UI
 st.header("Video Stitcher")
-stitch_folder = st.text_input("ID of the Google Drive folder to upload videos to:")
+stitch_folder = st.text_input("URL of the Google Drive folder to upload videos to:")
 
 # File upload widget
 stitch_uploaded = st.file_uploader(label="Upload a CSV file of videos", type=['csv'])
@@ -278,6 +288,7 @@ videos_directory = os.path.join(os.getcwd(), 'Videos')
 stitch_button = st.button("Stitch Videos")
 
 if stitch_button and st.session_state['final_auth'] and stitch_folder and stitch_uploaded is not None:
+    stitch_folder = extract_id_from_url(stitch_folder)
     df = pd.read_csv(stitch_uploaded)
 
     # Assuming that 'CLIENT_SECRET_FILE', 'videos_directory', 'stitch_folder', and 'df' are defined elsewhere in your code
