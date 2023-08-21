@@ -30,7 +30,10 @@ from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_compl
 import os
 import subprocess
 
-
+st.set_page_config(
+    page_title='VideoEditor',
+    page_icon='📹'
+) 
 hide_streamlit_style = """ <style> #MainMenu {visibility: hidden;} footer {visibility: hidden;} </style> """ 
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
