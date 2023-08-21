@@ -52,17 +52,24 @@ st.title("LI Video Editor")
 st.caption("By Giacomo Pugliese")
 
 with st.expander("Click to view full directions for this site"):
-    st.subheader("IDs and Doortags")
-    st.write("- Select which template you want to make, as well as the google drive folder ids for your photos and intended output destination.")
-    st.write("- If using an intern template, also indicate which program the interns are in")
-    st.write("- Upload a csv with columns PRECISELY titled 'name', 'role' (high school for interns, job description for staff), 'location', and 'class' (you can omit class column if using a staff template)")
-    st.write("- Click 'Process Tags' to being renderings of the chosen template and view them in your destination google drive folder'")
+    st.subheader("Google Authentication")
+    st.write("- Click 'Authenticate Google Account, and then on the generated link.")
+    st.write("- Follow the steps of Google login until you get to the final page.")
+    st.write("- Click on 'Finalize Authentication' to proceed to rest of website.")
     st.subheader("Video Intro Generator")
-    st.write("- Enter the intended output google drive folder id, as well as the program name of the students")
-    st.write("- Upload a csv with columns PRECISELY titled 'name', 'school', 'location', and 'class'")
-    st.write("- Click 'Process Videos' to being intro video renderings and view them in your destination google drive folder'")
+    st.write("- Enter the intended output google drive folder link, as well as the program name of the students.")
+    st.write("- If a solo intern video, upload a csv with columns PRECISELY titled 'name', 'school', 'location', and 'class'.")
+    st.write("- If a group video, upload a csv with columns PRECISELY titled 'name1', 'name2', 'name3'.... (max 7 interns).")
+    st.write("- Click 'Process Videos' to begin intro video renderings and view them in your destination google drive folder.")
+    st.subheader("Video Stitcher")
+    st.write("- Enter the intended output google drive folder link")
+    st.write("- Upload a csv with columns PRECISELY titled 'name', 'intro', and 'main' (reffering to the intro and main video share links).")
+    st.write("- Click 'Stitch Videos' to begin video stitching and view them in your destination google drive folder.")
+    st.subheader("Automatic Youtube Uploader")
+    st.write("- Upload a csv with columns PRECISELY titled 'title' and 'video' (the video column should have a google drive share link).")
+    st.write("- Click 'Upload videos to youtube' and view them in your youtube channel.")
 
-st.subheader("Google authentication")
+st.header("Google authentication")
 
 try:
     if st.button("Authenticate Google Account"):
@@ -103,7 +110,7 @@ try:
 except Exception as e:
     pass
 
-st.subheader("Video Intro Generator")
+st.header("Video Intro Generator")
 
 col1, col2 = st.columns(2)
 
@@ -259,7 +266,7 @@ if uploaded is not None and program and video_button and st.session_state['final
     st.success("Videos successfully generated!")
     
 # Streamlit UI
-st.subheader("Video Stitcher")
+st.header("Video Stitcher")
 stitch_folder = st.text_input("ID of the Google Drive folder to upload videos to:")
 
 # File upload widget
@@ -366,7 +373,7 @@ def download_video_from_drive(url, output, creds_dict):
     with open(output, 'wb') as f:
         f.write(video_data_io.getvalue())
 
-st.subheader("Automatic Youtube Uploader")
+st.header("Automatic Youtube Uploader")
 video_uploads = st.file_uploader(label="Upload a CVS of videos", type=['csv'])
 if st.button("Upload videos to youtube") and video_uploads:
     youtube = get_authenticated_service()
