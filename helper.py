@@ -10,6 +10,7 @@ from retry import retry
 import time
 from googleapiclient.errors import ResumableUploadError
 import ssl
+import re
 
 def wait_for_s3_object(s3, bucket, key, local_filepath):
     """
