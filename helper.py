@@ -154,7 +154,7 @@ def concatenate_videos_aws(intro_resized_filename, main_filename, outro_resized_
 
 
     try:
-        max_retries = 3
+        max_retries = 4
         retry_count = 0
 
         while retry_count < max_retries:
@@ -193,10 +193,10 @@ def concatenate_videos_aws(intro_resized_filename, main_filename, outro_resized_
         upload_video(response.raw, stitch_folder, service, output_filename)
 
         # Clean up the S3 bucket by deleting the files
-        s3_client.delete_object(Bucket=BUCKET_NAME, Key=S3_INPUT_PREFIX + f'{unique_id}_intro.mp4')
-        s3_client.delete_object(Bucket=BUCKET_NAME, Key=S3_INPUT_PREFIX + f'{unique_id}_main.mp4')
-        s3_client.delete_object(Bucket=BUCKET_NAME, Key=S3_INPUT_PREFIX + f'{unique_id}_outro.mp4')
-        s3_client.delete_object(Bucket=BUCKET_NAME, Key=S3_OUTPUT_PREFIX + output_filename.rsplit(".", 1)[0] + '.mp4')
+        s3.delete_object(Bucket=BUCKET_NAME, Key=S3_INPUT_PREFIX + f'{unique_id}_intro.mp4')
+        s3.delete_object(Bucket=BUCKET_NAME, Key=S3_INPUT_PREFIX + f'{unique_id}_main.mp4')
+        s3.delete_object(Bucket=BUCKET_NAME, Key=S3_INPUT_PREFIX + f'{unique_id}_outro.mp4')
+        s3.delete_object(Bucket=BUCKET_NAME, Key=S3_OUTPUT_PREFIX + output_filename.rsplit(".", 1)[0] + '.mp4')
         return
 
 

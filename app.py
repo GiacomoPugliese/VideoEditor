@@ -32,7 +32,7 @@ import subprocess
 import re
 import moviepy.editor as mp
 from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips
-
+import io
 
 st.set_page_config(
     page_title='VideoEditor',
@@ -101,7 +101,7 @@ with st.expander("Click to view full directions for this site"):
     st.write("- Click 'Process Videos' to begin intro video renderings and view them in your destination Google drive folder.")
     st.subheader("Video Stitcher")
     st.write("- Enter the intended output Google drive folder link")
-    st.write("- Upload a csv with columns PRECISELY titled 'name', 'intro', and 'main' (reffering to the intro and main video share links).")
+    st.write("- Upload a Google sheet with columns PRECISELY titled 'name', 'intro', and 'main' (reffering to the intro and main video share links).")
     st.write("- Click 'Stitch Videos' to begin video stitching and view them in your destination Google drive folder.")
     st.subheader("Automatic Youtube Uploader")
     st.write("- Upload a csv with columns PRECISELY titled 'title' and 'video' (the video column should have a Google drive share link).")
@@ -305,25 +305,26 @@ if uploaded is not None and program and video_button and st.session_state['final
                 i+=1
     st.success("Videos successfully generated!")
     
-# Streamlit UI
 st.header("Video Stitcher")
 stitch_folder = st.text_input("URL of the Google Drive folder to upload videos to:")
 
-# File upload widget
-stitch_uploaded = st.file_uploader(label="Upload a CSV file of videos", type=['csv'])
+# Google Sheet URL input
+google_sheet_url = st.text_input("Enter the Google Sheet URL:")
 
 # Get user's local "Videos" directory
 videos_directory = os.path.join(os.getcwd(), 'Videos')
 
 stitch_button = st.button("Stitch Videos")
 
-if stitch_button and st.session_state['final_auth'] and stitch_folder and stitch_uploaded is not None:
+if stitch_button and st.session_state['final_auth'] and stitch_folder and google_sheet_url:
+
     with st.spinner("Stitching videos (may take a few minutes)..."):
+        
+        # Extract Google Sheet ID from the URL
+        google_sheet_id = extract_id_from_url(google_sheet_url)
         stitch_folder = extract_id_from_url(stitch_folder)
-        df = pd.read_csv(stitch_uploaded)
 
-        # Assuming that 'CLIENT_SECRET_FILE', 'videos_directory', 'stitch_folder', and 'df' are defined elsewhere in your code
-
+        # Establish the service connection
         CLIENT_SECRET_FILE = 'credentials.json'
         with open(CLIENT_SECRET_FILE, 'r') as f:
             client_info = json.load(f)['web']
@@ -332,6 +333,20 @@ if stitch_button and st.session_state['final_auth'] and stitch_folder and stitch
         creds_dict['client_secret'] = client_info['client_secret']
         creds_dict['refresh_token'] = creds_dict.get('_refresh_token')
 
+        # Establish a connection to the Google Sheets API
+        creds = Credentials.from_authorized_user_info(creds_dict)
+        
+        # Build the Google Drive service
+        drive_service = build('drive', 'v3', credentials=creds)
+        sheets_service = build('sheets', 'v4', credentials=creds)
+        # Download the Google Sheet as CSV
+        request = drive_service.files().export_media(fileId=google_sheet_id, mimeType='text/csv')
+        response = request.execute()
+
+        # Convert to DataFrame
+        csv_io = io.StringIO(response.decode('utf-8'))
+        df = pd.read_csv(csv_io)
+        SPREADSHEET_ID = google_sheet_id
         arguments = [(index, row, videos_directory, creds_dict, stitch_folder) for index, row in df.iterrows()]
 
         stitch_progress = st.empty()
@@ -339,7 +354,7 @@ if stitch_button and st.session_state['final_auth'] and stitch_folder and stitch
 
         i = 0
 
-        with ProcessPoolExecutor(max_workers=15) as executor:
+        with ProcessPoolExecutor(max_workers=10) as executor:
             futures = [executor.submit(process_video, arg) for arg in arguments]
 
             for future, arg in zip(as_completed(futures), arguments):
@@ -347,8 +362,27 @@ if stitch_button and st.session_state['final_auth'] and stitch_folder and stitch
                     result = future.result()
                     i += 1
                     stitch_progress.text(f"Video Progress: {i}/{len(arguments)}")
+
+                    # Establish the service connection
+                    CLIENT_SECRET_FILE = 'credentials.json'
+                    with open(CLIENT_SECRET_FILE, 'r') as f:
+                        client_info = json.load(f)['web']
+                    creds_dict = st.session_state['creds']
+                    creds_dict['client_id'] = client_info['client_id']
+                    creds_dict['client_secret'] = client_info['client_secret']
+                    creds_dict['refresh_token'] = creds_dict.get('_refresh_token')
+
+                    # Establish a connection to the Google Sheets API
+                    creds = Credentials.from_authorized_user_info(creds_dict)
+                    sheets_servce = build('sheets', 'v4', credentials=creds)
+                    # Remove the row from Google Sheet
+                    # Assuming row numbers in your DataFrame match the Google Sheet's row numbers, starting from 2 (header + 1)
+                    row_number = arg[0] + 2
+                    sheets_service.spreadsheets().values().clear(spreadsheetId=SPREADSHEET_ID, range=f'A{row_number}:Z{row_number}').execute()
+
                 except Exception as e:
-                    # Assuming the 'arg' is a tuple and the first element is the row number
+                    i += 1
+                    stitch_progress.text(f"Video Progress: {i}/{len(arguments)}")
                     row_number = arg[0]
                     print(f'Exception at row {row_number + 2}: {e}')
 
